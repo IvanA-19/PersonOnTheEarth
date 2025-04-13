@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <div class="container bg-white p-4">
+        <h2>Новости</h2>
+        {% if news_list %}
+            {% for news_item in news_list %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ news_item.title }}</h5>
+                        <p class="card-text">{{ news_item.content }}</p>
+                        <p class="card-text"><small class="text-muted">Опубликовано: {{ news_item.publication_date }}</small></p>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>Пока нет ни одной новости.</p>
+        {% endif %}
+    </div>
+{% endblock %}

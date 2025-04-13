@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+    <div class="container bg-white p-4">
+        <h2>Шаг 2: Добавление руководителей</h2>
+        <form method="post">
+            {% csrf_token %}
+
+            <h3>Добавить руководителя:</h3>
+            {% bootstrap_form add_leader_form %}
+            <button type="submit" name="add_leader" class="btn btn-success">Добавить руководителя</button>
+
+            <h3>Список руководителей:</h3>
+            {% if leaders %}
+                <ul class="list-group">
+                    {% for leader in leaders %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ leader.full_name }} - {{ leader.mobile_phone }} - {{ leader.other_contact }}
+                            <button type="submit" name="remove_leader" value="{{ forloop.counter0 }}" class="btn btn-danger btn-sm">Удалить</button>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Пока нет ни одного руководителя.</p>
+            {% endif %}
+
+            <button type="submit" name="complete_step2" class="btn btn-primary mt-3">Далее</button>
+        </form>
+    </div>
+{% endblock %}

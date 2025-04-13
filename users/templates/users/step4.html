@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+    <div class="container bg-white p-4">
+        <h2>Шаг 4: Комментарий и завершение</h2>
+        <form method="post">
+            {% csrf_token %}
+            {% bootstrap_form form %}
+            <button type="submit" class="btn btn-primary">Завершить регистрацию</button>
+        </form>
+    </div>
+{% endblock %}

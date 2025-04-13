@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <section id="showcase">
+        <div class="container">
+            <h1>Добро пожаловать на конкурс "Человек на Земле"!</h1>
+            <p class="lead">Примите участие и внесите свой вклад в сохранение нашей планеты.</p>
+        </div>
+    </section>
+
+    <section id="boxes" class="py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Цель конкурса</h5>
+                            <p class="card-text">Поиск и поддержка инициатив, направленных на улучшение экологии.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Условия участия</h5>
+                            <p class="card-text">Приглашаются все желающие, внесшие вклад в экологию.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Призы</h5>
+                            <p class="card-text">Победителей ждут ценные призы и признание.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="news">
+        <div class="container bg-white p-4">
+            <h2>Новости</h2>
+            {% if news_list %}
+                {% for news_item in news_list %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ news_item.title }}</h5>
+                            <p class="card-text">{{ news_item.content }}</p>
+                            <p class="card-text"><small class="text-muted">Опубликовано: {{ news_item.publication_date }}</small></p>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>Пока нет ни одной новости.</p>
+            {% endif %}
+        </div>
+    </section>
+
+
+{% endblock %}

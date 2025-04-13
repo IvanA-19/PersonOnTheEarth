@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+    <div class="container bg-white p-4">
+        <div class="alert alert-danger" role="alert">
+            <h2>Ошибка регистрации</h2>
+            <p>Произошла ошибка при регистрации. Пожалуйста, попробуйте еще раз.</p>
+            {% if error_message %}
+                <p>Сообщение об ошибке: {{ error_message }}</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

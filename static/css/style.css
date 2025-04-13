@@ -1,0 +1,91 @@
+body {
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.container {
+    flex: 1;
+}
+
+/* Убираем отступ у навигационной панели */
+.navbar {
+    margin-bottom: 0;
+    padding: 0;
+}
+
+/* Прижимаем футер к низу */
+footer {
+    margin-top: auto;
+}
+
+/* Убираем задний цвет у текста на главной странице, делая showcase прозрачным */
+#showcase {
+    background: url('../img/earth.jpg') no-repeat center center/cover;
+    min-height: 400px;
+    text-align: center;
+    color: black;
+    position: relative;
+    padding: 100px 0; /* Увеличиваем отступ, чтобы текст не прилипал к краям */
+}
+
+#showcase::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.1)
+}
+
+#showcase * {
+    position: relative;
+    z-index: 2;
+}
+
+#showcase h1,
+#showcase p {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); /* Оставляем тени для читаемости */
+    background: none; /* Убираем задний цвет */
+    padding: 0.5em; /* Делаем небольшую отбивку */
+}
+
+/* Настройка цвета highlight */
+.highlight {
+    color: #FFC107;
+}
+
+.swiper {
+    width: 100%;
+    height: 300px;
+    margin-bottom: 20px;
+}
+
+.swiper-slide {
+    text-align: center;
+    font-size: 18px;
+    background: #fff;
+
+    /* Center slide text vertically */
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+}
+
+.swiper-slide img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
