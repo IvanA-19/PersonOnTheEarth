@@ -8,7 +8,7 @@ class NewsAdmin(admin.ModelAdmin):
     search_fields = ('title', 'text')  # Поля для поиска
     list_filter = ('publication_date',)  # Фильтры по дате
     date_hierarchy = 'publication_date'  # Навигация по датам
-    prepopulated_fields = {'title': ('title',)} # Автоматическое заполнение slug из title
+  
 
 
 @admin.register(FeedbackMessage)

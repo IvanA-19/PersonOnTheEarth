@@ -9,7 +9,7 @@
                 <div class="card mb-3">
                     <div class="card-body">
                         <h5 class="card-title">{{ news_item.title }}</h5>
-                        <p class="card-text">{{ news_item.content }}</p>
+                        <p class="card-text">{{ news_item.content|linebreaks }}</p>
                         <p class="card-text"><small class="text-muted">Опубликовано: {{ news_item.publication_date }}</small></p>
                     </div>
                 </div>

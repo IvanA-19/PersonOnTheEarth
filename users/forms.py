@@ -1,5 +1,4 @@
-from django import forms
-
+from .models import Application, Participant
 from django import forms
 
 class AddLeaderForm(forms.Form):
@@ -20,79 +19,109 @@ class AddLeaderForm(forms.Form):
 
         return cleaned_data
 
-class AddParticipantForm(forms.Form):
-    PARTICIPATION_CHOICES = [
-        ('', 'Не выбрано'),
-        ('school', 'Школа'),
-        ('additional_education', 'Учреждение дополнительного образования'),
-    ]
-
-    full_name = forms.CharField(max_length=200, label="Фамилия, имя", required=False)
-    birth_date = forms.DateField(label="Дата рождения", required=False, widget=forms.DateInput(attrs={'type': 'date'}))
-    participation_type = forms.ChoiceField(
-        label="Тип участия",
-        choices=PARTICIPATION_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-select'}),  # Bootstrap styling
-        required=False
+class AddParticipantForm(forms.ModelForm):
+    kindergarten_name = forms.CharField(
+        max_length=200, required=False, label="Название детского сада"
     )
-    school = forms.CharField(max_length=100, label="Школа", required=False)
-    grade = forms.CharField(max_length=10, label="Класс", required=False)
-    additional_education_name = forms.CharField(max_length=200, label="Наименование учреждения", required=False)
-    age = forms.IntegerField(label="Возраст", required=False)
-    project = forms.CharField(max_length=100, label='Тема проекта', required=False)
+    family_education_surname = forms.CharField(
+        max_length=200, required=False, label="Фамилия"
+    )
+
+    class Meta:
+        model = Participant
+        fields = [
+            "full_name",
+            "birth_date",
+            "participation_type",
+            "school_name",
+            "grade",
+            "college_name",
+            "course",
+            "additional_education_name",
+            "movement_type",
+            "family_name",
+            "kindergarten_name",
+            "family_education_surname",
+        ]
+        widgets = {
+            "birth_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, nomination=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if nomination != '6':
+            # Предполагаем, что participation_type — ChoiceField
+            # Фильтруем варианты, исключая детский сад и семейное воспитание
+            allowed = []
+            for value, label in self.fields['participation_type'].choices:
+                if value not in ('kindergarten', 'family_education'):
+                    allowed.append((value, label))
+            self.fields['participation_type'].choices = allowed
 
     def clean(self):
         cleaned_data = super().clean()
-        participation_type = cleaned_data.get('participation_type')
-        school = cleaned_data.get('school')
-        grade = cleaned_data.get('grade')
-        additional_education_name = cleaned_data.get('additional_education_name')
-        age = cleaned_data.get('age')
+        p_type = cleaned_data.get("participation_type")
 
-        if participation_type == 'school':
-            if not school or not grade:
-                self.add_error('school', "Пожалуйста, укажите школу и класс.")
-                self.add_error('grade', "Пожалуйста, укажите школу и класс.")
-        elif participation_type == 'additional_education':
-            if not additional_education_name or not age:
-                self.add_error('additional_education_name', "Пожалуйста, укажите наименование учреждения и возраст.")
-                self.add_error('age', "Пожалуйста, укажите наименование учреждения и возраст.")
+        if p_type == "kindergarten":
+            if not cleaned_data.get("kindergarten_name"):
+                self.add_error(
+                    "kindergarten_name",
+                    "Это поле обязательно для заполнения при выборе «Детский сад».",
+                )
 
-        return cleaned_data
+        if p_type == "family_education":
+            if not cleaned_data.get("family_education_surname"):
+                self.add_error(
+                    "family_education_surname",
+                    "Это поле обязательно для заполнения при выборе «Семейное воспитание».",
+                )
+
+
 
 class Step1Form(forms.Form):
     REGION_CHOICES = [
         ('', 'Не выбран'),
         ('adg', 'Республика Адыгея'),
-        ('alt', 'Алтайский край'),
+        ('amu', 'Республика Марий Эл'),
         ('amr', 'Амурская область'),
-        ('ark', 'Архангельская область'),
-        ('ast', 'Астраханская область'),
+        ('altres', 'Республика Алтай'),
+        ('alt', 'Алтайский край'),
+        ('bash', 'Республика Башкортостан'),
         ('bel', 'Белгородская область'),
+        ('bur', 'Республика Бурятия'),
         ('bry', 'Брянская область'),
-        ('vld', 'Владимирская область'),
-        ('vlg', 'Волгоградская область'),
-        ('volog', 'Вологодская область'),
-        ('vor', 'Воронежская область'),
-        ('iva', 'Ивановская область'),
+        ('dag', 'Республика Дагестан'),
+        ('dnr', 'Донецкая народная республика'),
+        ('eao', 'Еврейский автономный округ'),
+        ('iba', 'Ивановская область'),  # исправлено с 'iva'
+        ('ing', 'Республика Ингушетия'),
         ('irk', 'Иркутская область'),
         ('kbd', 'Кабардино-Балкарская Республика'),
-        ('kln', 'Калининградская область'),
-        ('klg', 'Калужская область'),
         ('kam', 'Камчатский край'),
+        ('kalm', 'Республика Калмыкия'),
         ('kar', 'Карачаево-Черкесская Республика'),
         ('kem', 'Кемеровская область'),
-        ('kir', 'Кировская область'),
+        ('khak', 'Республика Хакасия'),
+        ('khm', 'Ханты-Мансийский автономный округ'),
+        ('khab', 'Хабаровский край'),
+        ('kln', 'Калининградская область'),
+        ('klg', 'Калужская область'),
+        ('kmr', 'Республика Коми'),
         ('kos', 'Костромская область'),
         ('kras', 'Краснодарский край'),
         ('krs', 'Красноярский край'),
         ('kur', 'Курганская область'),
         ('kursk', 'Курская область'),
+        ('lnr', 'Луганская народная республика'),
         ('len', 'Ленинградская область'),
         ('lip', 'Липецкая область'),
         ('mag', 'Магаданская область'),
         ('mow', 'Московская область'),
+        ('msc', 'Москва'),
         ('mur', 'Мурманская область'),
+        ('mrd', 'Республика Мордовия'),
+        ('nnao', 'Ненецкий автономный округ'),
         ('niz', 'Нижегородская область'),
         ('nvg', 'Новгородская область'),
         ('nsk', 'Новосибирская область'),
@@ -108,44 +137,29 @@ class Step1Form(forms.Form):
         ('sam', 'Самарская область'),
         ('sar', 'Саратовская область'),
         ('sak', 'Сахалинская область'),
+        ('sev', 'Севастополь'),
+        ('spb', 'Санкт-Петербург'),
+        ('sta', 'Ставропольский край'),
         ('svl', 'Свердловская область'),
         ('smo', 'Смоленская область'),
         ('tamb', 'Тамбовская область'),
+        ('tatar', 'Республика Татарстан'),
         ('tver', 'Тверская область'),
         ('tom', 'Томская область'),
         ('tul', 'Тульская область'),
         ('tyu', 'Тюменская область'),
         ('udm', 'Удмуртская Республика'),
         ('uly', 'Ульяновская область'),
-        ('khab', 'Хабаровский край'),
-        ('khak', 'Республика Хакасия'),
-        ('khm', 'Ханты-Мансийский автономный округ'),
-        ('chel', 'Челябинская область'),
-        ('che', 'Чеченская Республика'),
-        ('chu', 'Чувашская Республика'),
-        ('chuk', 'Чукотский автономный округ'),
         ('yan', 'Ямало-Ненецкий автономный округ'),
         ('yar', 'Ярославская область'),
-        ('sev', 'Севастополь'),
-        ('krm', 'Республика Крым'),
-        ('msc', 'Москва'),
-        ('spb', 'Санкт-Петербург'),
         ('ynk', 'Республика Тыва (Тува)'),
-        ('dag', 'Республика Дагестан'),
-        ('ing', 'Республика Ингушетия'),
-        ('kalm', 'Республика Калмыкия'),
-        ('mrd', 'Республика Мордовия'),
-        ('sah', 'Республика Саха (Якутия)'),
-        ('tatar', 'Республика Татарстан'),
-        ('bur', 'Республика Бурятия'),
-        ('altres', 'Республика Алтай'),
         ('zab', 'Забайкальский край'),
-        ('sta', 'Ставропольский край'),
-        ('kmr', 'Республика Коми'),
-        ('nnao', 'Ненецкий автономный округ'),
-        ('amu', 'Республика Марий Эл')
+        ('hrn', 'Херсонская область'),
     ]
-    region = forms.ChoiceField(choices=REGION_CHOICES, label="Регион", required=True)
+
+    region = forms.ChoiceField(choices=REGION_CHOICES, label="Регион", required=False)
+    other_region = forms.CharField(max_length=100, label="Другой регион", required=False)
+
     city = forms.CharField(max_length=100, label="Населенный пункт")
     organization_name = forms.CharField(max_length=200, label="Название организации")
     postal_address = forms.CharField(max_length=200, label="Почтовый адрес")
@@ -153,5 +167,36 @@ class Step1Form(forms.Form):
     email = forms.EmailField(label="Электронная почта")
     website = forms.URLField(required=False, label="Сайт (необязательно)")
 
+    def clean(self):
+        cleaned_data = super().clean()
+        region_code = cleaned_data.get('region')
+        other_region = cleaned_data.get('other_region')
+
+        if region_code == '' and not other_region:
+            raise forms.ValidationError("Если регион не выбран, пожалуйста, укажите 'Другой регион'.")
+
+        # Если регион не выбран, подменяем код на текст из другого региона
+        if region_code == '' and other_region:
+            cleaned_data['region'] = other_region
+        else:
+            region_dict = dict(self.REGION_CHOICES)
+            if region_code in region_dict:
+                cleaned_data['region'] = region_dict[region_code]
+            else:
+                # Если код не найден в списке — ошибка или оставляем как есть
+                self.add_error('region', 'Выбран недопустимый регион.')
+
+        return cleaned_data
+
 class Step2Form(forms.Form):
     comment = forms.CharField(widget=forms.Textarea, label="Вопросы, предложения, пожелания", max_length=500, required=False)
+
+class ProjectInfoForm(forms.ModelForm):
+    class Meta:
+        model = Application
+        fields = ["project_title", "nomination"]
+        widgets = {
+            "project_title": forms.TextInput(attrs={"class": "form-control"}),
+            "nomination": forms.Select(attrs={"class": "form-control"}),
+        }
+

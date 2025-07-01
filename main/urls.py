@@ -9,3 +9,4 @@ urlpatterns = [
     path('feedback/', views.feedback_view, name='feedback'),  # Добавляем URL для обратной связи
     path('success/', views.success_view, name='success')
 ]
+

@@ -20,16 +20,58 @@ class Leader(models.Model):
         verbose_name_plural = "Руководители"
 
 class Participant(models.Model):
-    """
-    Модель для данных участника делегации.
-    """
     full_name = models.CharField(max_length=200, verbose_name="Фамилия, имя")
     birth_date = models.DateField(verbose_name="Дата рождения")
-    school = models.CharField(max_length=100, verbose_name="Школа", blank=True, null=True)
+
+    PARTICIPATION_CHOICES = [
+        ("school", "Школа"),
+        ("college", "Колледж/ВУЗ"),
+        ("additional", "Учреждение ДО"),
+        ("family", "Семейный коллектив"),
+        ("movement", "Движение"),
+        # Добавляем варианты для номинации №6
+        ("kindergarten", "Детский сад"),
+        ("family_education", "Семейное воспитание"),
+    ]
+
+    participation_type = models.CharField(
+        max_length=20, choices=PARTICIPATION_CHOICES, verbose_name="Тип участия"
+    )
+
+    family_name = models.CharField(
+        max_length=200, verbose_name="Название семейного коллектива (фамилия)", blank=True, null=True
+    )
+
+    school_name = models.CharField(
+        max_length=200, verbose_name="Школа", blank=True, null=True
+    )
     grade = models.CharField(max_length=10, verbose_name="Класс", blank=True, null=True)
-    additional_education_name = models.CharField(max_length=200, verbose_name="Наименование учреждения", blank=True, null=True)
-    age = models.IntegerField(verbose_name="Возраст", blank=True, null=True)
-    project = models.CharField(max_length=100, verbose_name='Тема проекта', null=True, blank=True)
+
+    college_name = models.CharField(
+        max_length=200, verbose_name="Колледж/ВУЗ", blank=True, null=True
+    )
+    course = models.CharField(max_length=50, verbose_name="Курс", blank=True, null=True)
+
+    additional_education_name = models.CharField(
+        max_length=200, verbose_name="Учреждение ДО", blank=True, null=True
+    )
+
+    MOVEMENT_CHOICES = [
+        ("children", "Детское"),
+        ("youth", "Молодежное"),
+    ]
+
+    movement_type = models.CharField(
+        max_length=20, choices=MOVEMENT_CHOICES, verbose_name="Тип движения", blank=True, null=True
+    )
+
+    # Новые поля для дополнительных типов участия
+    kindergarten_name = models.CharField(
+        max_length=200, verbose_name="Детский сад", blank=True, null=True
+    )
+    family_education_surname = models.CharField(
+        max_length=200, verbose_name="Фамилия (для семейного воспитания)", blank=True, null=True
+    )
 
     def __str__(self):
         return self.full_name
@@ -38,104 +80,41 @@ class Participant(models.Model):
         verbose_name = "Участник"
         verbose_name_plural = "Участники"
 
+
+
 class Application(models.Model):
-    """
-    Модель для хранения информации о заявке на конкурс.
-    """
-    REGION_CHOICES = [
-        ('adg', 'Республика Адыгея'),
-        ('alt', 'Алтайский край'),
-        ('amr', 'Амурская область'),
-        ('ark', 'Архангельская область'),
-        ('ast', 'Астраханская область'),
-        ('bel', 'Белгородская область'),
-        ('bry', 'Брянская область'),
-        ('vld', 'Владимирская область'),
-        ('vlg', 'Волгоградская область'),
-        ('volog', 'Вологодская область'),
-        ('vor', 'Воронежская область'),
-        ('iva', 'Ивановская область'),
-        ('irk', 'Иркутская область'),
-        ('kbd', 'Кабардино-Балкарская Республика'),
-        ('kln', 'Калининградская область'),
-        ('klg', 'Калужская область'),
-        ('kam', 'Камчатский край'),
-        ('kar', 'Карачаево-Черкесская Республика'),
-        ('kem', 'Кемеровская область'),
-        ('kir', 'Кировская область'),
-        ('kos', 'Костромская область'),
-        ('kras', 'Краснодарский край'),
-        ('krs', 'Красноярский край'),
-        ('kur', 'Курганская область'),
-        ('kursk', 'Курская область'),
-        ('len', 'Ленинградская область'),
-        ('lip', 'Липецкая область'),
-        ('mag', 'Магаданская область'),
-        ('mow', 'Московская область'),
-        ('mur', 'Мурманская область'),
-        ('niz', 'Нижегородская область'),
-        ('nvg', 'Новгородская область'),
-        ('nsk', 'Новосибирская область'),
-        ('oms', 'Омская область'),
-        ('orb', 'Оренбургская область'),
-        ('orl', 'Орловская область'),
-        ('pen', 'Пензенская область'),
-        ('perm', 'Пермский край'),
-        ('pri', 'Приморский край'),
-        ('psk', 'Псковская область'),
-        ('ros', 'Ростовская область'),
-        ('rya', 'Рязанская область'),
-        ('sam', 'Самарская область'),
-        ('sar', 'Саратовская область'),
-        ('sak', 'Сахалинская область'),
-        ('svl', 'Свердловская область'),
-        ('smo', 'Смоленская область'),
-        ('tamb', 'Тамбовская область'),
-        ('tver', 'Тверская область'),
-        ('tom', 'Томская область'),
-        ('tul', 'Тульская область'),
-        ('tyu', 'Тюменская область'),
-        ('udm', 'Удмуртская Республика'),
-        ('uly', 'Ульяновская область'),
-        ('khab', 'Хабаровский край'),
-        ('khak', 'Республика Хакасия'),
-        ('khm', 'Ханты-Мансийский автономный округ'),
-        ('chel', 'Челябинская область'),
-        ('che', 'Чеченская Республика'),
-        ('chu', 'Чувашская Республика'),
-        ('chuk', 'Чукотский автономный округ'),
-        ('yan', 'Ямало-Ненецкий автономный округ'),
-        ('yar', 'Ярославская область'),
-        ('sev', 'Севастополь'),
-        ('krm', 'Республика Крым'),
-        ('msc', 'Москва'),
-        ('spb', 'Санкт-Петербург'),
-        ('ynk', 'Республика Тыва (Тува)'),
-        ('dag', 'Республика Дагестан'),
-        ('ing', 'Республика Ингушетия'),
-        ('kalm', 'Республика Калмыкия'),
-        ('mrd', 'Республика Мордовия'),
-        ('sah', 'Республика Саха (Якутия)'),
-        ('tatar', 'Республика Татарстан'),
-        ('bur', 'Республика Бурятия'),
-        ('altres', 'Республика Алтай'),
-        ('zab', 'Забайкальский край'),
-        ('sta', 'Ставропольский край'),
-        ('kmr', 'Республика Коми'),
-        ('nnao', 'Ненецкий автономный округ'),
-        ('amu', 'Республика Марий Эл')
+    NOMINATION_CHOICES = [
+        ("1", "НОМИНАЦИЯ № 1. «ПРОБЛЕМЫ ПРИРОДНЫХ ЭКОСИСТЕМ»"),
+        ("2", "НОМИНАЦИЯ № 2. «ЖИВОТНЫЕ И РАСТЕНИЯ В ЭКОСИСТЕМАХ»"),
+        ("3", "НОМИНАЦИЯ № 3. «ЭТНОГРАФИЧЕСКИЕ ИССЛЕДОВАНИЯ»"),
+        ("4", "НОМИНАЦИЯ № 4. «ЭКОЛОГИЧЕСКИЕ ПРОБЛЕМЫ ПОСЕЛЕНИЙ.ПРОБЛЕМЫ ЭКОНОМИИ ЭНЕРГИИ И РЕСУРСОВ»"),
+        ("5", "НОМИНАЦИЯ № 5. «ЭКОТЕХ: ТЕХНОЛОГИИ ВО БЛАГО ПРИРОДЫ»"),
+        ("6", "НОМИНАЦИЯ № 6. «ПЕРВЫЕ ШАГИ В ЭКОЛОГИИ»"),
     ]
 
-    region = models.CharField(max_length=10, choices=REGION_CHOICES, verbose_name="Регион")
+    region = models.CharField(max_length=100, verbose_name="Регион")
     city = models.CharField(max_length=100, verbose_name="Населенный пункт")
     organization_name = models.CharField(max_length=200, verbose_name="Название организации")
     postal_address = models.CharField(max_length=200, verbose_name="Почтовый адрес")
     phone_number = models.CharField(max_length=20, verbose_name="Телефон с кодом города")
     email = models.EmailField(verbose_name="Электронная почта")
-    website = models.URLField(blank=True, null=True, verbose_name="Сайт (необязательно)")  # Поле может быть пустым
-    comment = models.CharField(verbose_name="Комментарий", max_length=500)
+    website = models.URLField(blank=True, null=True, verbose_name="Сайт (необязательно)")
+    comment = models.CharField(verbose_name="Комментарий", max_length=500, null=True, blank=True)
     leaders = models.ManyToManyField(Leader, blank=True, verbose_name="Руководители")
     participants = models.ManyToManyField(Participant, blank=True, verbose_name="Участники")
+
+    project_title = models.CharField(max_length=400, verbose_name="Тема проекта", blank=True, null=True)
+    nomination = models.CharField(max_length=1, choices=NOMINATION_CHOICES, verbose_name="Номинация", blank=True,
+                                  null=True)
+
+    registration_number = models.PositiveIntegerField(verbose_name="Регистрационный номер", unique=True, blank=True,
+                                                      null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.registration_number:
+            last = Application.objects.order_by('-registration_number').first()
+            self.registration_number = (last.registration_number + 1) if last and last.registration_number else 140001
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.organization_name} ({self.city})"

@@ -1,30 +1,32 @@
 from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render, redirect, reverse
+from django.shortcuts import render, redirect, reverse, get_object_or_404
 from django.contrib import messages
 from datetime import datetime
-from .forms import Step1Form, Step2Form, AddLeaderForm, AddParticipantForm  # Adjust forms as needed
-from .models import Application, Leader, Participant
-import openpyxl
+
+from openpyxl.utils import get_column_letter
+from openpyxl.workbook import Workbook
+from openpyxl.writer.excel import save_workbook
 from django.http import HttpResponse
 
-def step1_view(request):
-    """Представление для первого шага: Ввод данных организации."""
-    request.session.flush()
+from .forms import Step1Form, Step2Form, AddLeaderForm, AddParticipantForm, ProjectInfoForm
+from .models import Application, Leader, Participant
 
+
+def step1_view(request):
     if request.method == 'POST':
         form = Step1Form(request.POST)
         if form.is_valid():
             request.session['step1_data'] = form.cleaned_data
-            return redirect(reverse('users:step2'))
+            return redirect('users:step2')
     else:
-        form = Step1Form()
+        form = Step1Form(initial=request.session.get('step1_data'))
+
     return render(request, 'users/step1.html', {'form': form})
 
 
 def step2_view(request):
-    """Представление для второго шага: Добавление руководителей."""
-    step1_data = request.session.get('step1_data', None)
-
+    """Шаг 2: Добавление руководителей."""
+    step1_data = request.session.get('step1_data')
     if not step1_data:
         return redirect(reverse('users:step1'))
 
@@ -38,17 +40,18 @@ def step2_view(request):
                 leader_data = add_leader_form.cleaned_data
                 leaders.append(leader_data)
                 request.session['leaders'] = leaders
-                add_leader_form = AddLeaderForm()  # Очищаем форму после добавления
+                add_leader_form = AddLeaderForm()
 
         elif 'remove_leader' in request.POST:
             leader_index = int(request.POST['remove_leader'])
-            del leaders[leader_index]
-            request.session['leaders'] = leaders
+            if 0 <= leader_index < len(leaders):
+                leaders.pop(leader_index)
+                request.session['leaders'] = leaders
 
         elif 'complete_step2' in request.POST:
             if leaders:
-                request.session['leaders'] = leaders # Ensure leaders are saved before redirecting
-                return redirect(reverse('users:step3'))
+                request.session['leaders'] = leaders
+                return redirect(reverse('users:step_project'))
             else:
                 messages.error(request, "Пожалуйста, добавьте хотя бы одного руководителя.")
 
@@ -59,70 +62,131 @@ def step2_view(request):
     return render(request, 'users/step2.html', context)
 
 
+def project_info_view(request):
+    """Шаг с информацией о проекте (перед добавлением участников)."""
+    step1_data = request.session.get('step1_data')
+    if not step1_data:
+        return redirect('users:step1')
+
+    project_info = request.session.get('project_info', {})
+
+    if request.method == "POST":
+        form = ProjectInfoForm(request.POST, initial=project_info)
+        if form.is_valid():
+            request.session['project_info'] = form.cleaned_data
+            return redirect('users:step3')
+    else:
+        form = ProjectInfoForm(initial=project_info)
+
+    return render(request, "users/step_project.html", {"form": form})
+
+
 def step3_view(request):
-    """Представление для третьего шага: Добавление участников."""
-    step1_data = request.session.get('step1_data', None)
-    leaders = request.session.get('leaders', None)
-
-    if not all([step1_data, leaders]):
-        if step1_data is None:
-            return redirect(reverse('users:step1'))
-        else:
-            return redirect(reverse('users:step2'))
-
-
     participants = request.session.get('participants', [])
-    add_participant_form = AddParticipantForm()
+    project_info = request.session.get('project_info', {})
+    nomination = project_info.get('nomination')
 
     if request.method == 'POST':
         if 'add_participant' in request.POST:
-            add_participant_form = AddParticipantForm(request.POST)
-            if add_participant_form.is_valid():
-                participant_data = add_participant_form.cleaned_data
-                # Преобразуем birth_date в строку
-                participant_data['birth_date'] = participant_data['birth_date'].strftime('%Y-%m-%d')
+            form = AddParticipantForm(request.POST, nomination=nomination)
+            if form.is_valid():
+                participant_data = {
+                    'full_name': form.cleaned_data['full_name'],
+                    'birth_date': str(form.cleaned_data['birth_date']),
+                    'participation_type': form.cleaned_data['participation_type'],
+                }
+
+                participation_type = form.cleaned_data['participation_type']
+
+                if participation_type == 'school':
+                    participant_data['school_name'] = form.cleaned_data['school_name']
+                    participant_data['grade'] = form.cleaned_data['grade']
+
+                elif participation_type == 'college':
+                    participant_data['college_name'] = form.cleaned_data['college_name']
+                    participant_data['course'] = form.cleaned_data['course']
+
+                elif participation_type == 'additional':
+                    participant_data['additional_education_name'] = form.cleaned_data['additional_education_name']
+                    participant_data['school_name'] = form.cleaned_data['school_name']
+                    participant_data['grade'] = form.cleaned_data['grade']
+
+                elif participation_type == 'movement':
+                    participant_data['movement_type'] = form.cleaned_data['movement_type']
+
+                elif participation_type == 'family':
+                    participant_data['family_name'] = form.cleaned_data['family_name']
+
+                elif participation_type == "kindergarten":
+                    participant_data["kindergarten_name"] = form.cleaned_data["kindergarten_name"]
+
+                elif participation_type == "family_education":
+                    participant_data["family_education_surname"] = form.cleaned_data["family_education_surname"]
+
                 participants.append(participant_data)
                 request.session['participants'] = participants
-                add_participant_form = AddParticipantForm()  # Clear the form
+                request.session.modified = True
+
+                if participation_type == 'family':
+                    # Создаём новую форму с теми же participation_type и family_name,
+                    # но очищенными full_name и birth_date
+                    initial_data = {
+                        'participation_type': participation_type,
+                        'family_name': form.cleaned_data['family_name'],
+                    }
+                    form = AddParticipantForm(initial=initial_data, nomination=nomination)
+                    # Отрисовываем страницу без redirect, чтобы поля сохранились
+                    return render(request, 'users/step3.html', {
+                        'add_participant_form': form,
+                        'participants': participants,
+                    })
+
+                else:
+                    # Для остальных делаем redirect (обновляем страницу с пустой формой)
+                    return redirect('users:step3')
 
         elif 'remove_participant' in request.POST:
-            participant_index = int(request.POST['remove_participant'])
-            del participants[participant_index]
-            request.session['participants'] = participants
+            index = int(request.POST.get('remove_participant'))
+            if 0 <= index < len(participants):
+                participants.pop(index)
+                request.session['participants'] = participants
+                request.session.modified = True
+                return redirect('users:step3')
 
         elif 'complete_step3' in request.POST:
-            if participants:
-                request.session['participants'] = participants
-                return redirect(reverse('users:complete_step4'))
-            else:
-                messages.error(request, "Пожалуйста, добавьте хотя бы одного участника.")
+            return redirect('users:complete_step4')
 
-    context = {
+    else:
+        form = AddParticipantForm(nomination=nomination)
+
+    return render(request, 'users/step3.html', {
+        'add_participant_form': form,
         'participants': participants,
-        'add_participant_form': add_participant_form,
-    }
-    return render(request, 'users/step3.html', context)
+    })
+
 
 
 def complete_step4(request):
-    """Представление для четвертого шага: Ввод комментария, сохранение данных и завершение регистрации."""
-    step1_data = request.session.get('step1_data', None)
-    leaders = request.session.get('leaders', None)
-    participants = request.session.get('participants', None)
+    """Финальный шаг: ввод комментария, сохранение в БД и завершение регистрации."""
+    step1_data = request.session.get('step1_data')
+    project_info = request.session.get('project_info')
+    leaders = request.session.get('leaders')
+    participants = request.session.get('participants')
 
-    if not all([step1_data, leaders, participants]):
+    if not all([step1_data, project_info, leaders, participants]):
         if step1_data is None:
-            return redirect(reverse('users:step1'))
-        elif leaders is None:
-            return redirect(reverse('users:step2'))
+            return redirect('users:step1')
+        elif not project_info:
+            return redirect('users:step_project')
+        elif not leaders:
+            return redirect('users:step2')
         else:
-            return redirect(reverse('users:step3'))
+            return redirect('users:step3')
 
     if request.method == 'POST':
-        form = Step2Form(request.POST) # Step2Form now contains only comment
+        form = Step2Form(request.POST)  # В форме только комментарий
         if form.is_valid():
             comment = form.cleaned_data['comment']
-
             try:
                 application = Application.objects.create(
                     region=step1_data['region'],
@@ -132,169 +196,214 @@ def complete_step4(request):
                     phone_number=step1_data['phone_number'],
                     email=step1_data['email'],
                     website=step1_data['website'],
-                    comment=comment,  # Save the comment
+                    project_title=project_info.get('project_title'),
+                    nomination=project_info.get('nomination'),
+                    comment=comment,
                 )
 
                 for leader_data in leaders:
-                    # Поиск существующего руководителя
                     leader = Leader.objects.filter(
                         full_name=leader_data['full_name'],
-                        position=leader_data.get('position', ''), # default value to prevent errors
-                        academic_title=leader_data.get('academic_title', ''), # default value to prevent errors
-                        workplace=leader_data.get('workplace', ''), # default value to prevent errors
+                        position=leader_data.get('position', ''),
+                        academic_title=leader_data.get('academic_title', ''),
+                        workplace=leader_data.get('workplace', ''),
                         mobile_phone=leader_data['mobile_phone'],
                         other_contact=leader_data.get('other_contact', ''),
-                    ).first()  # Получаем первый результат или None
+                    ).first()
 
                     if leader is None:
-                        # Руководитель не существует, создаем нового
                         leader = Leader.objects.create(
                             full_name=leader_data['full_name'],
-                            position=leader_data.get('position', ''), # default value to prevent errors
-                            academic_title=leader_data.get('academic_title', ''), # default value to prevent errors
-                            workplace=leader_data.get('workplace', ''), # default value to prevent errors
+                            position=leader_data.get('position', ''),
+                            academic_title=leader_data.get('academic_title', ''),
+                            workplace=leader_data.get('workplace', ''),
                             mobile_phone=leader_data['mobile_phone'],
                             other_contact=leader_data.get('other_contact', ''),
                         )
-
                     application.leaders.add(leader)
 
                 for participant_data in participants:
-                    birth_date_str = participant_data['birth_date']
-                    birth_date_dt = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+                    birth_date_dt = datetime.strptime(participant_data['birth_date'], '%Y-%m-%d').date()
 
-                    participant = Participant.objects.create(
-                        full_name=participant_data['full_name'],
-                        birth_date=birth_date_dt,
-                        school=participant_data.get('school', ''), # default value to prevent errors
-                        grade=participant_data.get('grade', ''), # default value to prevent errors
-                        project=participant_data.get('project', ''), # default value to prevent errors
-                        additional_education_name=participant_data.get('additional_education_name',''),
-                        age=participant_data.get('age',''),
-                    )
+                    participant_kwargs = {
+                        "full_name": participant_data['full_name'],
+                        "birth_date": birth_date_dt,
+                        "participation_type": participant_data['participation_type'],
+                    }
+
+                    if participant_data['participation_type'] == "school":
+                        participant_kwargs["school_name"] = participant_data.get("school_name", "")
+                        participant_kwargs["grade"] = participant_data.get("grade", "")
+                    elif participant_data['participation_type'] == "college":
+                        participant_kwargs["college_name"] = participant_data.get("college_name", "")
+                        participant_kwargs["course"] = participant_data.get("course", "")
+                    elif participant_data['participation_type'] == "additional":
+                        participant_kwargs["additional_education_name"] = participant_data.get("additional_education_name", "")
+                        participant_kwargs["school_name"] = participant_data.get("school_name", "")
+                        participant_kwargs["grade"] = participant_data.get("grade", "")
+                    elif participant_data['participation_type'] == "movement":
+                        participant_kwargs["movement_type"] = participant_data.get("movement_type", "")
+                    elif participant_data['participation_type'] == "family":
+
+                        participant_kwargs["family_name"] = participant_data.get("family_name", "")
+                    elif participant_data['participation_type'] == "kindergarten":
+                        participant_kwargs["kindergarten_name"] = participant_data.get("kindergarten_name", "")
+                    elif participant_data['participation_type'] == "family_education":
+                        participant_kwargs["family_education_surname"] = participant_data.get("family_education_surname", "")
+
+                    participant = Participant.objects.create(**participant_kwargs)
                     application.participants.add(participant)
+                registration_number = application.registration_number
 
                 request.session.flush()
+                request.session['registration_number'] = registration_number
 
-                return redirect(reverse('users:success'))  # Redirect to success page
+
+                return redirect('users:success')
 
             except Exception as e:
-                print(f"Error saving application: {e}")
-                error_message = str(e)  # Get the error message
-                return render(request, 'users/error.html', {'error_message': error_message})  # Render error page
+                return render(request, 'users/error.html', {'error_message': str(e)})
     else:
-        form = Step2Form() # Step2Form now contains only comment
-        return render(request, 'users/step4.html', {'form': form})
+        form = Step2Form()
+    return render(request, 'users/step4.html', {'form': form})
+
+
 
 def success_view(request):
-    return render(request, 'users/success.html')
+    registration_number = request.session.get('registration_number')
+    return render(request, 'users/success.html', {'registration_number': registration_number})
+
 
 def error_view(request):
     return render(request, 'users/error.html')
 
 
-def export_applications_to_excel(request):
-    """
-    Экспортирует данные заявок, участников и руководителей в Excel-файл.
-    """
-
-    # Получаем все заявки, отсортированные по региону
-    applications = Application.objects.all().order_by('region')
-
-    # Создаем новую книгу Excel
-    wb = openpyxl.Workbook()
+@staff_member_required
+def export_applications_detailed_excel(request):
+    wb = Workbook()
     ws = wb.active
     ws.title = "Заявки"
 
-    # Заголовки столбцов
     headers = [
-        "№",
-        "Регион",
-        "Город",
-        "Название организации",
-        "Почтовый адрес",
-        "Телефон с кодом города",
-        "Электронная почта",
-        "Сайт",
-        "Комментарий",
-        # Участники
-        "Участник: Фамилия, имя",
-        "Участник: Дата рождения",
-        "Участник: Школа",
-        "Участник: Класс",
-        "Участник: Наименование учреждения",
-        "Участник: Возраст",
-        "Участник: Тема проекта",
-        # Руководители
-        "Руководитель: ФИО",
-        "Руководитель: Должность",
-        "Руководитель: Ученое звание",
-        "Руководитель: Место работы",
-        "Руководитель: Мобильный телефон",
-        "Руководитель: Другой способ связи",
+        'Регистрационный номер',
+        'Тип записи',
+        'ФИО',
+        'Дата рождения',
+        'Тип участия',
+        'Название семейного коллектива',
+        'Школа',
+        'Класс',
+        'Колледж/ВУЗ',
+        'Курс',
+        'Учреждение ДО',
+        'Тип движения',
+        'Детский сад',
+        'Семейное воспитание (фамилия)',
+        'Должность',
+        'Ученое звание',
+        'Место работы',
+        'Телефон',
+        'Другой контакт',
+        'Тема проекта',
+        'Регион',
+        'Город',
+        'Название организации',
+        'Почтовый адрес',
+        'Телефон организации',
+        'Email',
+        'Сайт',
+        'Комментарий',
     ]
     ws.append(headers)
 
-    # Заполняем таблицу данными
-    row_num = 2  # Начинаем со второй строки (после заголовков)
-    for i, application in enumerate(applications):
-        # Информация о заявке
-        app_data = [
-            i + 1,  # № заявки
-            application.get_region_display(),  # Отображаемое значение региона
-            application.city,
-            application.organization_name,
-            application.postal_address,
-            application.phone_number,
-            application.email,
-            application.website or "",  # Обработка None для URLField
-            application.comment,
-        ]
+    for app in Application.objects.all():
+        reg_num = app.registration_number or ''
+        project_title = app.project_title or ''
+        region_display = app.region or ''
 
-        # Собираем информацию об участниках
-        participants_data = []
-        for participant in application.participants.all():
-            participants_data.extend([
+        # Участники
+        for participant in app.participants.all():
+            ws.append([
+                reg_num,
+                'Участник',
                 participant.full_name,
-                participant.birth_date.strftime('%Y-%m-%d'),  # Форматирование даты
-                participant.school or "",
-                participant.grade or "",
-                participant.additional_education_name or "",
-                participant.age or "",
-                participant.project or "",
+                participant.birth_date.strftime('%d.%m.%Y') if participant.birth_date else '',
+                participant.get_participation_type_display() if participant.participation_type else '',
+                participant.family_name or '',
+                participant.school_name or '',
+                participant.grade or '',
+                participant.college_name or '',
+                participant.course or '',
+                participant.additional_education_name or '',
+                participant.get_movement_type_display() or '',
+                participant.kindergarten_name or '',
+                participant.family_education_surname or '',
+                '',  # Должность у участника отсутствует
+                '',  # Ученое звание отсутствует
+                '',  # Место работы отсутствует
+                '',  # Телефон у участника отсутствует
+                '',  # Другой контакт у участника отсутствует
+                project_title,
+                region_display,
+                app.city or '',
+                app.organization_name or '',
+                app.postal_address or '',
+                app.phone_number or '',
+                app.email or '',
+                app.website or '',
+                app.comment or '',
             ])
 
-        # Собираем информацию о руководителях
-        leaders_data = []
-        for leader in application.leaders.all():
-            leaders_data.extend([
+        # Руководители
+        for leader in app.leaders.all():
+            ws.append([
+                reg_num,
+                'Руководитель',
                 leader.full_name,
-                leader.position or "",
-                leader.academic_title or "",
-                leader.workplace or "",
-                leader.mobile_phone,
-                leader.other_contact or "",
+                '',  # Дата рождения отсутствует
+                '',  # Тип участия отсутствует
+                '',  # Семейный коллектив отсутствует
+                '',  # Школа отсутствует
+                '',  # Класс отсутствует
+                '',  # Колледж отсутствует
+                '',  # Курс отсутствует
+                '',  # Учреждение ДО отсутствует
+                '',  # Тип движения отсутствует
+                '',  # Детский сад отсутствует
+                '',  # Фамилия для семейного коллектива отсутствует
+                leader.position or '',
+                leader.academic_title or '',
+                leader.workplace or '',
+                leader.mobile_phone or '',
+                leader.other_contact or '',
+                project_title,
+                region_display,
+                app.city or '',
+                app.organization_name or '',
+                app.postal_address or '',
+                app.phone_number or '',
+                app.email or '',
+                app.website or '',
+                app.comment or '',
             ])
 
-        # Объединяем все данные в одну строку
-        row_data = app_data + participants_data + leaders_data
-        ws.append(row_data)
+    # Автоподгонка ширины столбцов
+    for column_cells in ws.columns:
+        max_length = 0
+        column = column_cells[0].column
+        for cell in column_cells:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        adjusted_width = max_length + 2
+        ws.column_dimensions[get_column_letter(column)].width = adjusted_width
 
-        row_num += 1
-
-    # Создаем HTTP-ответ для скачивания файла
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=applications.xlsx'
-
-    # Сохраняем книгу Excel в HTTP-ответ
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="applications_full.xlsx"'
     wb.save(response)
-
     return response
 
 
-@staff_member_required
 def applications_list(request):
-    """
-    Отображает список заявок (только для администраторов).
-    """
     return render(request, 'users/applications_list.html')
